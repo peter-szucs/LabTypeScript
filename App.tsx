@@ -8,7 +8,8 @@ interface shoppingItem {
   id: number,
   title: string,
   price: number,
-  description: string,
+  description?: string,
+  category?: string,
   image: string
 }
 
@@ -19,7 +20,7 @@ type listItemProps = {
 
 type StackParams = {
   Catalog: undefined,
-  ItemScreen: { id: number, title: string }
+  ItemScreen: { id: number }
 }
 
 type MainScreenProps = {
@@ -49,13 +50,24 @@ async function fetchCatalog(): Promise<shoppingItem[]> {
 
 }
 
-async function fetchItem(props: {id: number}): Promise<shoppingItem> {
-  const url = 'https://fakestoreapi.com/products/' + props.id.toString
+async function fetchItem(id: number): Promise<shoppingItem> {
+  const url = "https://fakestoreapi.com/products/" + id
   let item: shoppingItem
   let response = await fetch(url)
-  let body: shoppingItem = await response.json()
-  item = body
+  item = await response.json()
   return item
+}
+
+function discountOrNot(price: number | undefined): boolean {
+  if (price == undefined) {
+    return false
+  }
+  else if (price > 50) {
+    return false
+  } 
+  else {
+    return true
+  }
 }
 
 const ItemComponent = ({ item, navigation }: listItemProps) => {
@@ -63,8 +75,7 @@ const ItemComponent = ({ item, navigation }: listItemProps) => {
   return (
     <TouchableOpacity 
       onPress={() => navigation.navigate('ItemScreen', {
-        id: item.id, 
-        title: item.title})}>
+        id: item.id })}>
       <View style={{ padding: 10, width: '80%' }}>
         <View style={{ 
           padding: 20, 
@@ -75,7 +86,15 @@ const ItemComponent = ({ item, navigation }: listItemProps) => {
           <Image 
             style={{ height: 80, width: 80 }}
             source = {{ uri: item.image }} />
-          <Text style={{ fontWeight: 'bold', padding: 10 }}>{item.title}</Text>
+          <View style={{ flexDirection: 'column' }}>
+            <Text style={{ fontWeight: 'bold', padding: 10 }}>{item.title}</Text>
+            <Text style={{ 
+              color: discountOrNot(item.price) ? 'black' : 'green', 
+              padding: 10 }}>
+                ${item.price}
+            </Text>
+          </View>
+          
         </View>
     </View>
     </TouchableOpacity>
@@ -96,7 +115,7 @@ const MainScreen = ({ navigation }: MainScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView style={{ width: '100%', justifyContent: 'space-evenly' }}>
+      <SafeAreaView style={{ width: '100%', justifyContent: 'space-evenly', backgroundColor: 'white' }}>
         <FlatList
           style={{backgroundColor: '#f2f2f2', padding: 10}}
           data={data}
@@ -114,34 +133,36 @@ const MainScreen = ({ navigation }: MainScreenProps) => {
             }}
           keyExtractor={(item, index) => index.toString()} />
       </SafeAreaView>
-        <Button 
-          title="fetch" 
-          onPress={ async () => {
-            let data: shoppingItem[] = await fetchCatalog()
-            setData(data)
-          }} />
     </View>
   );
 }
 
 const ItemScreen = ({ navigation, route }: ItemViewScreenProps) => {
-  const [data, setData] = useState<shoppingItem>()
+  const [itemInfo, setItemInfo] = useState<shoppingItem>();
+
+  useEffect(() => {
+    async function fetchItemInfo() {
+      let item: shoppingItem = await fetchItem(route.params.id)
+      navigation.setOptions({ title: item.title })
+      setItemInfo(item)
+    }
+    fetchItemInfo();
+  }, []);
+
   return (
-    <View style={styles.container}>
-      <SafeAreaView style={{ width: '100%', justifyContent: 'space-evenly'}}>
-      {/* <Image 
-        style={{ height: 150, width: 150 }}
-        source={{ uri:  data.image}}/> */}
-      <Text>ImageView</Text>
-      <Text>ID: {route.params.id}</Text>
+    <SafeAreaView style={{ width: '100%', backgroundColor: 'white' }}>
+      <View style={{ flexDirection: 'column', backgroundColor: 'white', height: '100%' }}>
+        <Image 
+          style={{ height: 200, width: 200, alignSelf: 'center', margin: 10 }}
+          source={{ uri:  itemInfo?.image}}/>
+        <Text style={{ fontWeight: 'bold', fontSize: 22, paddingHorizontal: 10 }}>{itemInfo?.title}</Text>
+        <Text style={discountOrNot(itemInfo?.price) ? styles.regularPrice : styles.discountedPrice}>${itemInfo?.price}</Text>
+        <Text style={{ paddingHorizontal: 10, fontWeight: 'bold' }}>Description</Text>
+        <Text style={{ paddingHorizontal: 10 }}>{itemInfo?.description}</Text>
+        <Text style={{ color: '#727272', padding: 10 }}>Category: {itemInfo?.category}</Text>
+        <Button title="Add to Cart" onPress={() => console.log("Added to Cart")}></Button>
+      </View>
     </SafeAreaView>
-        <Button 
-          title="fetch" 
-          onPress={ async () => {
-            let fetchdata: shoppingItem = await fetchItem({id: route.params.id})
-            setData(fetchdata)
-          }} />
-    </View>
   );
 }
 
@@ -175,4 +196,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     justifyContent: 'center'
   },
+  regularPrice: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    padding: 10
+  },
+  discountedPrice: {
+    color: 'green',
+    fontSize: 20,
+    fontWeight: 'bold',
+    padding: 10
+  },
+
 });
